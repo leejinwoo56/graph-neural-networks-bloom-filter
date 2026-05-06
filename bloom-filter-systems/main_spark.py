@@ -54,13 +54,12 @@ def sweep_k_experiment(spark, m, n_train, n_test, k_values, base_seed=0):
         print(f"Building Bloom filter for k={k}...")
         # Build distributed BF
         ###################### TODO ####################
-        rdd_urls = ...
-        bits = ...
+        bits = build_bloom_filter(rdd_train_ids, m, k, base_seed)
         ################################################
 
         # Evaluate FPR
         ###################### TODO ####################
-        fpr = ...
+        fpr = evaluate_fpr(rdd_neg_ids, bits, m, k, base_seed)
         ################################################
         results.append((k, fpr))
         print(f"  k={k}, FPR={fpr:.6f}")
@@ -84,24 +83,23 @@ def cascade_vs_dense_experiment(
     # (A) Cascade build
     print("Building cascade Bloom filters...")
     ###################### TODO ####################
-    bits1, bits2 = None
+    bits1, bits2 = build_two_stage_cascade(rdd_train_ids, m1, k1, m2, k2)
     ################################################
 
     print("Evaluating cascade...")
     ###################### TODO ####################
-    fpr_cascade = None
+    fpr_cascade = evaluate_fpr_cascade(rdd_neg_ids, bits1, m1, k1, bits2, m2, k2)
     ################################################
 
     # (B) Dense build
     print("Building dense Bloom filter...")
     ###################### TODO ####################
-    rdd_urls = None
-    bits_dense = None
+    bits_dense = build_bloom_filter(rdd_train_ids, m_total, k_dense)
     ################################################    
 
     print("Evaluating dense Bloom filter...")
     ###################### TODO ####################
-    fpr_dense = None
+    fpr_dense = evaluate_fpr(rdd_neg_ids, bits_dense, m_total, k_dense)
     ###################### TODO ####################
 
     return fpr_cascade, fpr_dense
