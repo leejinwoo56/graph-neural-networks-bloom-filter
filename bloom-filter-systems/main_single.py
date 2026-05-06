@@ -49,14 +49,21 @@ def run_single_experiment(m: int, k: int, n_train: int, n_test: int) -> float:
     # 2) Build Bloom filter and insert train URLs that are converted from train IDs
     ###################### TODO ####################
     # create BloomFilter(m, k) and insert all train URLs.
-
+    bf = BloomFilter(m,k) 
+    for tid in train_ids : 
+        url = id_to_url(tid) 
+        bf.insert(url)
     ################################################
 
     # 3) Evaluate on negative URLs
     false_positives = 0
     ###################### TODO ####################
     # query the BloomFilter with all negative test URLs, compute the empirical fpr
-
+    for nid in neg_ids : 
+        url = id_to_url(nid)
+        if bf.query(url) : 
+            false_positives += 1 
+    fpr = false_positives/n_test 
     ################################################
     return fpr 
 
