@@ -1,50 +1,21 @@
-# graphSAGE.py
-
 import numpy as np
 import scipy.sparse as sp
-# DO NOT IMPORT ANY OTHER LIBRARIES
-
 
 class GraphSAGE:
-    """
-    Two-layer GraphSAGE with mean aggregation and concatenation.
-
-      H0 = X          
-      M0 = A_norm @ H0
-      H0_cat = [H0 || M0]
-      H1 = ReLU(H0_cat @ W0)
-
-      M1 = A_norm @ H1
-      H1_cat = [H1 || M1]
-      logits = H1_cat @ W1
-      probs  = softmax(logits)
-    """
-
-    def __init__(self, input_dim, hidden_dim, output_dim,
-                 num_nodes=None, use_embedding=False):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_nodes=None, use_embedding=False):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
         
-        ###################### TODO ####################
-        # (i) Weight Initialization
+        limit0 = np.sqrt(1 / hidden_dim)
+        size0 = (2 * input_dim, hidden_dim)
 
-        limit0 = ...
-        size0 = ...         # tuple of 2 ints
+        limit1 = np.sqrt(1 / output_dim)
+        size1 = (2 * hidden_dim, output_dim)
 
-        limit1 = ...
-        size1 = ...         # tuple of 2 ints
-        ################################################
+        self.W0 = np.random.uniform(-limit0, limit0, size=size0)
+        self.W1 = np.random.uniform(-limit1, limit1, size=size1)
 
-        self.W0 = np.random.uniform(
-            -limit0, limit0, size=size0
-        )
-
-        self.W1 = np.random.uniform(
-            -limit1, limit1, size=size1
-        )
-
-        # caches for backprop
         self.H0 = None
         self.M0 = None
         self.H0_cat = None
@@ -56,41 +27,26 @@ class GraphSAGE:
         self.probs = None
 
     @staticmethod
-    def softmax(self, logits):
-        pass
-
-    @staticmethod
     def softmax(logits):
         logits = logits - logits.max(axis=1, keepdims=True)
         exp_logits = np.exp(logits)
         return exp_logits / exp_logits.sum(axis=1, keepdims=True)
 
     def forward(self, X, A_norm):
-        """
-        X      : (N, d_in) csr or dense
-        A_norm: (N, N) csr, row-normalized adjacency
-        """
-        # dense features
         if sp.isspmatrix(X):
             X0 = X.toarray()
         else:
             X0 = np.asarray(X)
 
         self.H0 = X0
+        self.M0 = A_norm @ self.H0
+        self.H0_cat = np.hstack([self.H0, self.M0])
+        self.pre_H1 = self.H0_cat @ self.W0
+        self.H1 = np.maximum(0, self.pre_H1)
 
-        ###################### TODO ####################
-        # (ii) Two-layer GraphSAGE forward pass
-        # ----- graphSAGE Layer 0 -----
-        self.M0 = ...               # Average neighbor embeddings
-        self.H0_cat = ...           # Concat self and neighbor embeddings
-        self.pre_H1 = ...           # Apply a linear transformation
-        self.H1 = ...               # Nonlinearity
-
-        # ----- graphSAGE Layer 1 -----
-        self.M1 = ...               # Average neighbor embeddings
-        self.H1_cat = ...           # Concat self and neighbor embeddings
-        self.pre_Z = ...            # Apply a linear transformation
-        ################################################
+        self.M1 = A_norm @ self.H1
+        self.H1_cat = np.hstack([self.H1, self.M1])
+        self.pre_Z = self.H1_cat @ self.W1
         self.probs = self.softmax(self.pre_Z)                  
         return self.probs
 
@@ -107,16 +63,18 @@ class GraphSAGE:
 
         f1_list = []
         for c in range(num_classes):
-            ###################### TODO ####################
-            # (iv) Evaluation metric
-            tp = ...
-            fp = ...
-            fn = ...
+            tp = np.sum((pred == c) & (true == c))
+            fp = np.sum((pred == c) & (true != c))
+            fn = np.sum((pred != c) & (true == c))
 
-            precision = ...
-            recall    = ...
-            f1        = ...
-            ################################################
+            denom_p = tp + fp
+            precision = tp / denom_p if denom_p > 0 else 0.0
+
+            denom_r = tp + fn
+            recall = tp / denom_r if denom_r > 0 else 0.0
+
+            denom_f1 = precision + recall
+            f1 = 2 * (precision * recall) / denom_f1 if denom_f1 > 0 else 0.0
             f1_list.append(f1)
             
         macro_f1 = float(np.mean(f1_list))
@@ -124,54 +82,30 @@ class GraphSAGE:
         return float(loss), float(acc), macro_f1
 
     def backprop(self, X, Y_onehot, A_norm, mask):
-        """
-        Returns:
-            dW0, dW1, dEmb  (dEmb is None if use_embedding=False)
-        """
         N_lab = mask.sum()
+        dpre_Z = np.zeros_like(self.probs)
+        dpre_Z[mask] = (self.probs[mask] - Y_onehot[mask]) / N_lab
 
-        # ----- gradient wrt logits -----
-        dpre_Z = np.zeros_like(self.probs)  # (N, C)
-        ###################### TODO ####################
-        # (iii) Backpropagation and weight update
-        # Use cached:
-        #   H0, M0, H0_cat, pre_H1, H1, M1, H1_cat, pre_Z, probs
-        dpre_Z[mask] = ... # (Hint) Question (a-i)
+        dW1 = self.H1_cat.T @ dpre_Z
+        dH1_cat = dpre_Z @ self.W1.T
 
-        # ----- layer 1 -----
-        dW1 = ...          # (Hint) Question (a-ii)                         
-        dH1_cat = ...      # (Hint) Question (a-iii)                         
-
-        dH1_direct = ...   # (Hint) Question (a-iv)                    
-        dM1 = ...          # (Hint) Question (a-iv)
-
-        dH1_agg = ...      # (Hint) Question (a-iv)                     
-
-        dH1_total = ...    # (Hint) Question (a-iv)
-        dpre_H1 = ...      # (Hint) Question (a-v)
+        d_h = self.hidden_dim
+        dH1_direct = dH1_cat[:, :d_h]
+        dM1 = dH1_cat[:, d_h:]
         
-        # ----- layer 0 -----
-        dW0 = ...          # (Hint) Question (a-vi)
-        ################################################
+        dH1_agg = A_norm.T @ dM1
+        dH1_total = dH1_direct + dH1_agg
+        
+        dpre_H1 = dH1_total * (self.pre_H1 > 0).astype(float)
+        dW0 = self.H0_cat.T @ dpre_H1
 
         return dW0, dW1
 
     def weight_update(self, dW0, dW1, lr):
-        """
-        SGD update for W0, W1 and (optionally) emb.
-        """
-        ###################### TODO ####################
-        # (iii) Backpropagation and weight update
-        self.W0 = ...
-        self.W1 = ...
-        ################################################
-
-        return None
+        self.W0 -= lr * dW0
+        self.W1 -= lr * dW1
 
     def grad_descent_step(self, X, Y_onehot, A_norm, mask, lr):
-        """
-        One full-graph gradient descent step.
-        """
         _ = self.forward(X, A_norm)
         dW0, dW1 = self.backprop(X, Y_onehot, A_norm, mask)
         self.weight_update(dW0, dW1, lr)
