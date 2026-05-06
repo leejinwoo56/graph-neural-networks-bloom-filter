@@ -22,12 +22,16 @@ def build_bloom_filter(rdd_keys: RDD, m: int, k: int, base_seed: int = 0) -> np.
 
     # flatMap: key → [ (idx,1), (idx,1), ... ]
     ###################### TODO ####################
-    idx_rdd = ...
+    def _map_to_indices(id_val) : 
+        url = id_to_url(id_val) 
+        hashes = get_hashes(url, m, k, base_seed)
+        return [(h,1) for h in hashes]
+    idx_rdd = rdd_keys.flatMap(_map_to_indices) 
     ################################################
 
     # apply OR operation on the bit values at each index position in the BloomFilter
     ###################### TODO ####################
-    reduced = ...
+    reduced = idx_rdd.reduceByKey(lambda x, y:1 )
     ################################################
 
     # Collect final set bits
@@ -36,8 +40,8 @@ def build_bloom_filter(rdd_keys: RDD, m: int, k: int, base_seed: int = 0) -> np.
     # Make bit array
     bits = np.zeros(m, dtype=np.uint8)
     ###################### TODO ####################
-
-
+    for idx, _ in ones :
+        bits[idx] =1 
     ################################################
     return bits
 
@@ -65,14 +69,14 @@ def evaluate_fpr(rdd_neg_ids: RDD, bits: np.ndarray,
     def check_negative(i):
         url = id_to_url(i)
         ###################### TODO ####################
-        idxs = ...
+        idxs = get_hashes(url,m,k, base_seed)
         ################################################
         b = bits_bc.value
         return 1 if all(b[idx] == 1 for idx in idxs) else 0
 
     ###################### TODO ####################
-    false_pos = ...
-    total = ...
+    false_pos = rdd_neg_ids.map(check_negative).reduce(lambda x, y : x+y)
+    total = rdd_neg_ids.count()
     ################################################
     return false_pos / total if total > 0 else 0.0
 
@@ -90,9 +94,9 @@ def build_two_stage_cascade(rdd_train_ids: RDD,
     Build two cascade Bloom filters over exact same training set.
     """
     ###################### TODO ####################
-    rdd_urls = None
-    bits1 = None
-    bits2 = None 
+
+    bits1 = build_bloom_filter(rdd_train_ids, m1, k1, base_seed1)
+    bits2 = build_bloom_filter(rdd_train_ids, m2, k2, base_seed2) 
     ################################################
     return bits1, bits2
 
@@ -117,15 +121,21 @@ def evaluate_fpr_cascade(rdd_neg_ids: RDD,
     def check(i):
         url = id_to_url(i)
         ###################### TODO ####################
+        idxs1 = get_hashes(url, m1, k1, base_seed1)
+        b1 = bits1_bc.value
+        accept1 = all(b1[idx] == 1 for idx in idxs1)
+        if not accept1:
+            return 0
+        idxs2 = get_hashes(url, m2, k2, base_seed2)
+        b2 = bits2_bc.value
+        accept2 = all(b2[idx] == 1 for idx in idxs2)
 
-
-
-        accept = None
+        accept = accept2
         ################################################
         return 1 if accept else 0 
 
     ###################### TODO ####################
-    false_pos = None
-    total = None
+    false_pos = rdd_neg_ids.map(check).reduce(lambda x, y: x + y)
+    total = rdd_neg_ids.count()
     ###################### TODO ####################
     return false_pos / total if total > 0 else 0.0
