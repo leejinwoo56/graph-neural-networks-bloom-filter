@@ -39,6 +39,10 @@ def get_hashes(key: str, m: int, k: int, base_seed: int = 0) -> List[int]:
     key_bytes = key.encode("utf-8")
     indices = []
     ###################### TODO ####################
-    
+    for i in range(k) : 
+        h_val = _hash_bytes(key_bytes, base_seed + i)
+
+        idx = h_val % m
+        indices.append(idx)
     ################################################
     return indices
