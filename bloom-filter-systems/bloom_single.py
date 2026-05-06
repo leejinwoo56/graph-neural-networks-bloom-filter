@@ -33,7 +33,7 @@ class BloomFilter:
         self.k = k
         self.base_seed = base_seed
         ###################### TODO ####################
-        self.bits = ...  # Hint: use numpy array of dtype uint8 with length m, initially all zeros.
+        self.bits = np.zeros(m, dtype = np.uint8)  # Hint: use numpy array of dtype uint8 with length m, initially all zeros.
         ################################################
 
     def _indices(self, key: str):
@@ -41,7 +41,9 @@ class BloomFilter:
 
     def insert(self, key: str) -> None:
         ###################### TODO ####################
-
+        indices = self._indices(key) 
+        for idx in indices : 
+            self.bits[idx] = 1
         ################################################
 
     def insert_many(self, keys: Iterable[str]) -> None:
@@ -55,6 +57,9 @@ class BloomFilter:
         and False if key is definitely not in the set (at least one bit is 0).
         """
         ###################### TODO ####################
-
-        return
+        indices = self._indices(key) 
+        for idx in indices : 
+            if self.bits[idx] == 0 : 
+                return False 
+        return True 
         ################################################
